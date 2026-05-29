@@ -5,7 +5,7 @@
       <span v-if="sticker.specialSticker" class="badge badge-special">Spécial</span>
     </div>
     <h3>{{ sticker.name }}</h3>
-    <p>{{ sticker.team?.name || 'Sans équipe' }} · {{ sticker.type }}</p>
+    <p>{{ sticker.countryCode }} · {{ sticker.categoryCode }} · {{ sticker.type }}</p>
     <div class="actions">
       <button @click="$emit('set-qty', 0)">Manquant</button>
       <button @click="$emit('set-qty', 1)">Je l'ai</button>
@@ -13,12 +13,6 @@
     </div>
   </article>
 </template>
-
 <script setup>
-defineProps({
-  sticker: {
-    type: Object,
-    required: true
-  }
-})
+defineProps({ sticker: { type: Object, required: true } })
 </script>

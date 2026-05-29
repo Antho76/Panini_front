@@ -1,26 +1,7 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
-
-export async function fetchStickers(search = '', team = '') {
-  const params = new URLSearchParams()
-  if (search) params.set('search', search)
-  if (team) params.set('team', team)
-  const response = await fetch(`${API_URL}/stickers?${params.toString()}`)
-  if (!response.ok) throw new Error('Erreur chargement stickers')
-  return response.json()
-}
-
-export async function fetchStats(ownerName) {
-  const response = await fetch(`${API_URL}/collection/${ownerName}/stats`)
-  if (!response.ok) throw new Error('Erreur chargement stats')
-  return response.json()
-}
-
-export async function updateCollection(payload) {
-  const response = await fetch(`${API_URL}/collection`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
-  })
-  if (!response.ok) throw new Error('Erreur mise à jour collection')
-  return response.json()
-}
+function authHeaders() { const token = sessionStorage.getItem('panini_token'); return token ? { Authorization: `Bearer ${token}` } : {} }
+export function setSession(token, user) { sessionStorage.setItem('panini_token', token); sessionStorage.setItem('panini_user', JSON.stringify(user)) }
+export function clearSession() { sessionStorage.removeItem('panini_token'); sessionStorage.removeItem('panini_user') }
+export function getSessionUser() { const raw = sessionStorage.getItem('panini_user'); return raw ? JSON.parse(raw) : null }
+async function request(path, options = {}) { const response = await fetch(`${API_URL}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...authHeaders(), ...(options.headers || {}) } }); if (!response.ok) throw new Error(await response.text() || 'Erreur API'); return response.json() }
+export const api = { login: (payload) => request('/auth/login', { method: 'POST', body: JSON.stringify(payload) }), register: (payload) => request('/auth/register', { method: 'POST', body: JSON.stringify(payload) }), dashboard: () => request('/me/dashboard'), collection: () => request('/me/collection'), saveSticker: (payload) => request('/me/collection', { method: 'POST', body: JSON.stringify(payload) }), stickers: ({ search = '', category = '', country = '' } = {}) => { const params = new URLSearchParams(); if (search) params.set('search', search); if (category) params.set('category', category); if (country) params.set('country', country); return request(`/stickers?${params.toString()}`) } }
