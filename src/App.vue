@@ -49,23 +49,27 @@
         </ul>
       </article>
     </section>
-    <section v-if="view === 'collection'" class="toolbar">
-      <input v-model="search" placeholder="Recherche" />
-      <select v-model="category"><option value="">Toutes catégories</option><option value="FWC">FWC</option><option value="COUNTRY">Pays</option><option value="COCA">Coca-Cola</option></select>
-      <button @click="loadStickers">Filtrer</button>
+    <section v-if="view === 'collection'" class="panel">
+      <input v-model="search" type="text" placeholder="Rechercher un sticker..." class="search-input" />
+      <CategoryGrid :selected="category" @select="selectCategory" />
+      <CountryGrid ref="countryGridRef" :selected="country" @select="selectCountry" />
     </section>
-    <section v-if="view === 'countries'" class="toolbar">
-      <input v-model="country" placeholder="Code pays (ex: FRA)" />
-      <button @click="loadStickers">Voir le pays</button>
+    <section v-if="view === 'countries'" class="panel">
+      <CountryGrid ref="countryGridRef" :selected="country" @select="selectCountry" />
     </section>
     <section v-if="view !== 'dashboard'" class="content">
-      <StickerCard v-for="sticker in stickers" :key="sticker.code" :sticker="sticker" @set-qty="qty => saveSticker(sticker.code, qty)" />
+      <div v-if="filteredStickers.length === 0" class="empty-state">
+        <p>Aucun sticker trouvé</p>
+      </div>
+      <StickerCard v-for="sticker in filteredStickers" :key="sticker.code" :sticker="sticker" :owned="sticker.owned" @set-qty="qty => saveSticker(sticker.code, qty)" />
     </section>
   </div>
 </template>
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import StickerCard from './components/StickerCard.vue'
+import CategoryGrid from './components/CategoryGrid.vue'
+import CountryGrid from './components/CountryGrid.vue'
 import { api, clearSession, getSessionUser, setSession } from './services/api'
 const user = ref(getSessionUser())
 const dashboard = ref({})
@@ -77,9 +81,50 @@ const search = ref('')
 const category = ref('')
 const country = ref('')
 const auth = ref({ username: '', displayName: '', password: '' })
+const countryGridRef = ref(null)
+
+const filteredStickers = computed(() => {
+  return stickers.value.filter(s => {
+    const matchesSearch = !search.value || 
+      s.name.toLowerCase().includes(search.value.toLowerCase()) ||
+      s.code.toLowerCase().includes(search.value.toLowerCase())
+    return matchesSearch
+  })
+})
+
 async function loadDashboard(){ dashboard.value = await api.dashboard() }
-async function loadStickers(){ stickers.value = await api.stickers({ search: search.value, category: category.value, country: country.value }) }
-async function saveSticker(code, quantityOwned){ await api.saveSticker({ stickerCode: code, quantityOwned, favorite: false }); await loadDashboard() }
+
+async function loadStickers(){ 
+  const allStickers = await api.stickers({ 
+    search: search.value, 
+    category: category.value, 
+    country: country.value 
+  })
+  const myCollection = await api.collection()
+  const ownedCodes = new Set(myCollection.filter(c => c.quantityOwned > 0).map(c => c.sticker.code))
+  stickers.value = allStickers.map(s => ({ ...s, owned: ownedCodes.has(s.code) }))
+}
+
+function selectCategory(cat) {
+  category.value = category.value === cat ? '' : cat
+  country.value = ''
+  loadStickers()
+}
+
+function selectCountry(code) {
+  country.value = country.value === code ? '' : code
+  category.value = ''
+  loadStickers()
+}
+
+async function saveSticker(code, quantityOwned){ 
+  await api.saveSticker({ stickerCode: code, quantityOwned, favorite: false })
+  await loadDashboard()
+  await loadStickers()
+  if (countryGridRef.value) {
+    await countryGridRef.value.loadStats()
+  }
+}
 function toggleMode(){ mode.value = mode.value === 'login' ? 'register' : 'login'; error.value = '' }
 async function submitAuth(){ try { error.value = ''; const payload = { ...auth.value }; const res = mode.value === 'login' ? await api.login(payload) : await api.register(payload); setSession(res.token, { username: res.username, displayName: res.displayName }); user.value = getSessionUser(); auth.value = { username: '', displayName: '', password: '' }; await loadDashboard(); await loadStickers(); view.value = 'dashboard'; } catch (e) { error.value = 'Connexion impossible'; } }
 function logout(){ clearSession(); user.value = null; dashboard.value = {}; stickers.value = [] }
