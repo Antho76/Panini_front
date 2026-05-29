@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.production.VITE_API_URL || 'http://localhost:8080/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api'
 function authHeaders() { const token = sessionStorage.getItem('panini_token'); return token ? { Authorization: `Bearer ${token}` } : {} }
 export function setSession(token, user) { sessionStorage.setItem('panini_token', token); sessionStorage.setItem('panini_user', JSON.stringify(user)) }
 export function clearSession() { sessionStorage.removeItem('panini_token'); sessionStorage.removeItem('panini_user') }
